@@ -148,6 +148,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     return ListTile(
                       title: Text(invoice['title'] ?? 'Brak tytułu'),
                       subtitle: Text('Data: ${invoice['date']?.split(' ')[0] ?? 'Brak daty'} - Brutto: ${invoice['gross'] ?? 'Brak kwoty'}'),
+                      onTap: () async {
+                        // Await the result from pushing the new screen.
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoice: invoice)),
+                        );
+
+                        // Check if the context is still valid before using it.
+                        if (result == true && mounted) {
+                          await Future.delayed(const Duration(milliseconds: 250));
+                          _loadInvoices();
+                        }
+                      },
                     );
                   }).toList(),
                 );
@@ -173,6 +186,122 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+}
+
+class InvoiceDetailScreen extends StatefulWidget {
+  final Map<String, dynamic> invoice;
+
+  const InvoiceDetailScreen({super.key, required this.invoice});
+
+  @override
+  State<InvoiceDetailScreen> createState() => _InvoiceDetailScreenState();
+}
+
+class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
+  Future<void> _deleteInvoice() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/invoices.json');
+      List<dynamic> invoices = [];
+
+      if (await file.exists()) {
+        final contents = await file.readAsString();
+        if (contents.isNotEmpty) {
+          invoices = json.decode(contents) as List<dynamic>;
+        }
+      }
+
+      // Find and remove the invoice. This assumes each invoice has a unique identifier,
+      // or you can match by all fields if necessary. For simplicity, this example
+      // matches by title and date, which might not be unique in a real app.
+      // A unique ID generated upon creation would be better.
+      invoices.removeWhere((inv) =>
+          inv['title'] == widget.invoice['title'] &&
+          inv['date'] == widget.invoice['date']);
+
+      await file.writeAsString(json.encode(invoices));
+
+      // ignore: use_build_context_synchronously
+      Navigator.pop(context, true); // Indicate success and trigger reload
+    } catch (e) {
+      print('Error deleting invoice: $e');
+      // Optionally, show an error message to the user
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context, false); // Indicate no change, or handle differently
+          },
+        ),
+        title: Text(widget.invoice['title'] ?? 'Szczegóły Faktury'),
+        backgroundColor: Theme.of(context).primaryColor,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: <Widget>[
+            _buildDetailRow('Tytuł:', widget.invoice['title'] ?? 'Brak danych'),
+            _buildDetailRow('Data:', widget.invoice['date']?.split(' ')[0] ?? 'Brak danych'),
+            _buildDetailRow('Brutto:', widget.invoice['gross'] ?? 'Brak danych'),
+            _buildDetailRow('VAT:', '${widget.invoice['vat'] ?? 'Brak danych'}%'),
+            _buildDetailRow('Netto:', widget.invoice['net'] ?? 'Brak danych'),
+            const SizedBox(height: 20), // Dodaje trochę przestrzeni przed przyciskiem
+            ElevatedButton(
+              onPressed: () {
+                // Show confirmation dialog before deleting
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Potwierdź usunięcie'),
+                      content: const Text('Czy na pewno chcesz usunąć tę fakturę?'),
+                      actions: <Widget>[
+                        TextButton(
+                          child: const Text('Anuluj'),
+                          onPressed: () => Navigator.of(context).pop(), // Close the dialog
+                        ),
+                        TextButton(
+                          child: const Text('Usuń'),
+                          onPressed: () => {
+                            _deleteInvoice(),
+                            Navigator.pop(context, true), // Indicate success and trigger reload
+                          }, // Proceed with deletion
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+              child: const Text('Usuń'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 16))),
+        ],
+      ),
     );
   }
 }
