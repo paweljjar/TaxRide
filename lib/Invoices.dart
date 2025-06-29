@@ -69,6 +69,12 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadInvoices();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final groupedInvoices = _groupInvoicesByYearMonth(_invoices);
     final years = groupedInvoices.keys.toList();
@@ -230,7 +236,7 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
       _saveDataToJson(formData);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Dodano fakturę'), action: SnackBarAction(label: 'OK', onPressed: () => {}),),
+        SnackBar(content: const Text('Dodano'), action: SnackBarAction(label: 'OK', onPressed: () => {}),),
       );
 
       Navigator.pop(context, true);

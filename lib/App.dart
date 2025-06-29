@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taxride/Incomes.dart';
 
 import 'Invoices.dart';
 
@@ -27,7 +28,8 @@ class Home extends StatelessWidget{
       child: Scaffold(
         body: TabBarView(
             children: [
-              InvoicesScreen()
+              InvoicesScreen(),
+              IncomesScreen()
             ]
         ),
         bottomNavigationBar: Container(
