@@ -168,8 +168,7 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
   final List<String> _sources = [
     "Uber",
     "Bolt",
-    "FreeNow",
-    "Inne"
+    "FreeNow"
   ];
 
   final List<String> _types = [

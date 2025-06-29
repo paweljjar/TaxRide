@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:taxride/Incomes.dart';
+import 'package:taxride/Taxes.dart';
 
 import 'Invoices.dart';
 
@@ -28,6 +29,7 @@ class Home extends StatelessWidget{
       child: Scaffold(
         body: TabBarView(
             children: [
+              TaxesScreen(),
               InvoicesScreen(),
               IncomesScreen()
             ]
@@ -39,16 +41,16 @@ class Home extends StatelessWidget{
           child: const TabBar(
             tabs: [
               Tab(
+                  icon: Icon(Icons.money_off),
+                  text: 'Podatki'
+              ),
+              Tab(
                   icon: Icon(Icons.text_snippet),
                   text: 'Faktury'
               ),
               Tab(
                   icon: Icon(Icons.attach_money_rounded),
                   text: 'Przychód'
-              ),
-              Tab(
-                  icon: Icon(Icons.money_off),
-                  text: 'Podatki'
               ),
             ],
             labelColor: Colors.white,
