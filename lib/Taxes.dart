@@ -25,6 +25,15 @@ class _TaxesScreenState extends State<TaxesScreen> {
     final invoicesFile = File('${directory.path}/invoicesdata.json');
     final incomesFile = File('${directory.path}/incomesdata.json');
 
+    if(invoicesFile.existsSync() == false || incomesFile.existsSync() == false){
+      setState(() {
+        _base = -184.92;
+        _tax = -15.72;
+      });
+
+      return;
+    }
+
     final String invoicesJson = await invoicesFile.readAsString();
     final String incomesJson = await incomesFile.readAsString();
 
@@ -247,8 +256,8 @@ class _PreviousTaxesScreenState extends State<PreviousTaxesScreen> {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text("Podstawa: ${taxData['base']?.toStringAsFixed(2) ?? '0.00'} zł"),
-                  Text("Podatek: ${taxData['tax']?.toStringAsFixed(2) ?? '0.00'} zł"),
+                  Text("Podstawa: ${taxData['base']?.toStringAsFixed(2) ?? '-184.92'} zł"),
+                  Text("Podatek: ${taxData['tax']?.toStringAsFixed(2) ?? '-15.72'} zł"),
                 ],
               ),
             ),

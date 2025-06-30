@@ -165,18 +165,13 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
   String? _source;
-  String? _type;
   final _grossController = TextEditingController();
+  final _bonusController = TextEditingController();
 
   final List<String> _sources = [
     "Uber",
     "Bolt",
     "FreeNow"
-  ];
-
-  final List<String> _types = [
-    "Przychód",
-    "Bonus"
   ];
 
   Future<void> _pickDate() async {
@@ -194,7 +189,7 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
     }
   }
 
-  Future<void> _saveDataToJson(Map<String, dynamic> data) async {
+  Future<void> _saveDataToJson(Map<String, dynamic> data, Map<String, dynamic>? data2) async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/incomesdata.json');
@@ -209,6 +204,9 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
       }
 
       jsonList.add(data);
+      if(data2 != null){
+        jsonList.add(data2);
+      }
       await file.writeAsString(json.encode(jsonList));
     } catch (e) {
       if (kDebugMode) {
@@ -220,18 +218,29 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
   void _onAddButtonPressed() {
     if (_formKey.currentState!.validate() &&
         _selectedDate != null) {
-      Map<String, dynamic> formData = {
+      Map<String, dynamic> formDataIncome = {
         'id': DateTime
             .now()
             .millisecondsSinceEpoch
             .toString(),
         'date': _selectedDate.toString(),
         'source': _source,
-        'type': _type,
+        'type': "Przychód",
         'gross': _grossController.text,
       };
 
-      _saveDataToJson(formData);
+      Map<String, dynamic> formDataBonus = {
+        'id': (DateTime
+            .now()
+            .millisecondsSinceEpoch + 100)
+            .toString(),
+        'date': _selectedDate.toString(),
+        'source': _source,
+        'type': "Bonus",
+        'gross': _bonusController.text,
+      };
+
+      _saveDataToJson(formDataIncome, formDataBonus);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: const Text('Dodano'),
@@ -294,35 +303,29 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
                           return null;
                         },
                       ),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Typ'),
-                        value: _type,
-                        items: _types.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _type = newValue;
-                          });
-                        },
+                      TextFormField(
+                        controller: _grossController,
+                        decoration: const InputDecoration(
+                            labelText: 'Przychód (brutto)'),
+                        keyboardType: TextInputType.number,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Proszę wybrać typ przychodu';
+                            return 'Proszę podać kwotę';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Proszę podać poprawną liczbę';
                           }
                           return null;
                         },
                       ),
                       TextFormField(
-                        controller: _grossController,
+                        controller: _bonusController,
                         decoration: const InputDecoration(
-                            labelText: 'Kwota (brutto)'),
+                            labelText: 'Bonus'),
                         keyboardType: TextInputType.number,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Proszę podać kwotę brutto';
+                            return 'Proszę podać kwotę';
                           }
                           if (double.tryParse(value) == null) {
                             return 'Proszę podać poprawną liczbę';
