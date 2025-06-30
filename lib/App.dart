@@ -6,12 +6,6 @@ import 'package:taxride/Incomes.dart';
 import 'package:taxride/Taxes.dart';
 import 'package:taxride/Invoices.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  MobileAds.instance.initialize();
-  runApp(const App());
-}
-
 class App extends StatelessWidget {
   const App({super.key});
 
