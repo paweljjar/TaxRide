@@ -106,20 +106,23 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           }
                         }
                       }
-                      return ListTile(
-                        title: Text(invoice['title'] ?? 'Brak tytułu'),
-                        subtitle: Text('Data: $formattedDate - Brutto: ${invoice['gross'] + ' zł' ?? 'Brak kwoty'}'),
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoice: invoice)),
-                          ).then((value) => {
-                            if(value == true && mounted){
-                              Future.delayed(const Duration(milliseconds: 100)),
-                              _loadInvoices()
-                            }
-                          });
-                        },
+                      return Card(
+                        margin: const EdgeInsets.all(8.0),
+                        child: ListTile(
+                          title: Text(invoice['title'] ?? 'Brak tytułu'),
+                          subtitle: Text('Data: $formattedDate - Brutto: ${invoice['gross'] + ' zł' ?? 'Brak kwoty'}'),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoice: invoice)),
+                            ).then((value) => {
+                              if(value == true && mounted){
+                                Future.delayed(const Duration(milliseconds: 100)),
+                                _loadInvoices()
+                              }
+                            });
+                          },
+                        )
                       );
                     }).toList(),
                   );

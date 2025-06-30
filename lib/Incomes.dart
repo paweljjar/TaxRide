@@ -106,20 +106,23 @@ class _IncomesScreenState extends State<IncomesScreen> {
                               }
                             }
                           }
-                          return ListTile(
-                            title: Text(income['source'] ?? 'Inne źródło'),
-                            subtitle: Text('Data: $formattedDate - ${income['type']} brutto: ${income['gross'] + ' zł' ?? 'Brak kwoty'}'),
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => IncomeDetailScreen(income: income)),
-                              ).then((value) => {
-                                if(value == true && mounted){
-                                  Future.delayed(const Duration(milliseconds: 100)),
-                                  _loadIncomes()
-                                }
-                              });
-                            },
+                          return Card(
+                            margin: EdgeInsets.all(8.0),
+                            child: ListTile(
+                              title: Text(income['source'] ?? 'Inne źródło'),
+                              subtitle: Text('Data: $formattedDate - ${income['type']} brutto: ${income['gross'] + ' zł' ?? 'Brak kwoty'}'),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => IncomeDetailScreen(income: income))
+                                ).then((value) => {
+                                  if(value == true && mounted){
+                                    Future.delayed(const Duration(milliseconds: 100)),
+                                    _loadIncomes()
+                                  }
+                                });
+                              },
+                            )
                           );
                         }).toList(),
                       );
