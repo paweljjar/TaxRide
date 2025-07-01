@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
 
 //#region invoices
 
@@ -168,6 +169,7 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
   final _grossController = TextEditingController();
   String? _selectedVatRate;
   double _netValue = 0.0;
+  XFile? _imageFile;
   double _vatValue = 0.0;
 
   final List<String> _vatRates = [
@@ -176,6 +178,19 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
     '5%',
     '0%',
   ];
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      setState(() {
+        _imageFile = image;
+      });
+    }
+  }
+
+
 
   Future<void> _pickDate() async {
     DateTime? pickedDate = await showDatePicker(
@@ -228,12 +243,21 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
     if (_formKey.currentState!.validate() &&
         _selectedDate != null) {
       Map<String, dynamic> formData = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'date': _selectedDate.toString(),
-        'title': _titleController.text,
-        'gross': _grossController.text,
-        'vat': double.tryParse(_selectedVatRate!.substring(0, _selectedVatRate!.length - 1)) ?? 0.0,
-        'net': _netValue.toStringAsFixed(2),
+        'id': DateTime
+            .now()
+            .millisecondsSinceEpoch
+            .toString(),
+        'date': _selectedDate!.toIso8601String(),
+        'title': _titleController.text.trim(),
+        'gross': _grossController.text.trim(),
+        'vat': double.tryParse(
+            _selectedVatRate!.substring(0, _selectedVatRate!.length - 1)) ??
+            0.0,
+        'net': _netValue.toStringAsFixed(2).trim(),
+        'imagePath': _imageFile?.path,
+        // Include imagePath only if an image is selected
+        // 'imagePath': _imageFile != null ? _imageFile!.path : null,
+
       };
 
       _saveDataToJson(formData);
@@ -286,6 +310,31 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
                   return null;
                 },
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _imageFile == null
+                          ? 'Brak zdjęcia'
+                          : 'Wybrano zdjęcie',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    ElevatedButton(
+                      onPressed: _pickImage,
+                      child: const Text('Wybierz zdjęcie'),
+                    ),
+                  ],
+                ),
+              ),
+              if (_imageFile != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Image.file(
+                    File(_imageFile!.path),
+                    height: 200, // Adjust as needed
+                  ),),
               TextFormField(
                 controller: _grossController,
                 decoration: const InputDecoration(labelText: 'Brutto'),
@@ -406,6 +455,16 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
+  Widget _buildImageDisplay(String? imagePath) {
+    if (imagePath != null && imagePath.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        child: Image.file(File(imagePath)),
+      );
+    }
+    return const SizedBox.shrink(); // Return an empty widget if no image
+  }
+
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Brak danych';
     try {
@@ -436,6 +495,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             _buildDetailRow('Brutto:', "${widget.invoice['gross']} zł"),
             _buildDetailRow('VAT:', "${widget.invoice['vat']}%"),
             _buildDetailRow('Netto:', "${widget.invoice['net']} zł"),
+            _buildImageDisplay(widget.invoice['imagePath']),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
