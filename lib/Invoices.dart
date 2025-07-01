@@ -179,15 +179,43 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
     '0%',
   ];
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await picker.pickImage(source: source);
 
     if (image != null) {
       setState(() {
         _imageFile = image;
       });
     }
+  }
+
+ void _showImageSourceActionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext bc) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Wybierz z galerii'),
+                  onTap: () {
+                    _pickImage(ImageSource.gallery);
+                    Navigator.of(context).pop();
+                  }),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Zrób zdjęcie'),
+                onTap: () {
+                  _pickImage(ImageSource.camera);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      });
   }
 
 
@@ -322,7 +350,7 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
                       style: const TextStyle(fontSize: 16),
                     ),
                     ElevatedButton(
-                      onPressed: _pickImage,
+                      onPressed: () => _showImageSourceActionSheet(context),
                       child: const Text('Wybierz zdjęcie'),
                     ),
                   ],
