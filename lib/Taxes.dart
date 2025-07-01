@@ -25,21 +25,6 @@ class _TaxesScreenState extends State<TaxesScreen> {
     final invoicesFile = File('${directory.path}/invoicesdata.json');
     final incomesFile = File('${directory.path}/incomesdata.json');
 
-    if(invoicesFile.existsSync() == false || incomesFile.existsSync() == false){
-      setState(() {
-        _base = -184.92;
-        _tax = -15.72;
-      });
-
-      return;
-    }
-
-    final String invoicesJson = await invoicesFile.readAsString();
-    final String incomesJson = await incomesFile.readAsString();
-
-    final List<dynamic> invoicesData = json.decode(invoicesJson);
-    final List<dynamic> incomesData = json.decode(incomesJson);
-
     double b = 0.0; // income from bolt
     double c = 0.0; // bonus from bolt
     double d = 0.0; // income from uber
@@ -48,29 +33,39 @@ class _TaxesScreenState extends State<TaxesScreen> {
     double g = 0.0; // bonus from freenow
     double h = 0.0; // sum of invoices
 
-    for (var income in incomesData) {
-      DateTime incomeDate = DateTime.parse(income['date']);
-      if (incomeDate.month == _currentMonth && incomeDate.year == _currentYear) {
-        if (income['type'] == 'Przychód' && income['source'] == 'Bolt') {
-          b += double.parse(income['gross']);
-        } else if (income['type'] == 'Bonus' && income['source'] == 'Bolt') {
-          c += double.parse(income['gross']);
-        } else if (income['type'] == 'Przychód' && income['source'] == 'Uber') {
-          d += double.parse(income['gross']);
-        } else if (income['type'] == 'Bonus' && income['source'] == 'Uber') {
-          e += double.parse(income['gross']);
-        } else if (income['type'] == 'Przychód' && income['source'] == 'FreeNow') {
-          f += double.parse(income['gross']);
-        } else if (income['type'] == 'Bonus' && income['source'] == 'FreeNow') {
-          g += double.parse(income['gross']);
+    if(incomesFile.existsSync()){
+      final String incomesJson = await incomesFile.readAsString();
+      final List<dynamic> incomesData = json.decode(incomesJson);
+
+      for (var income in incomesData) {
+        DateTime incomeDate = DateTime.parse(income['date']);
+        if (incomeDate.month == _currentMonth && incomeDate.year == _currentYear) {
+          if (income['type'] == 'Przychód' && income['source'] == 'Bolt') {
+            b += double.parse(income['gross']);
+          } else if (income['type'] == 'Bonus' && income['source'] == 'Bolt') {
+            c += double.parse(income['gross']);
+          } else if (income['type'] == 'Przychód' && income['source'] == 'Uber') {
+            d += double.parse(income['gross']);
+          } else if (income['type'] == 'Bonus' && income['source'] == 'Uber') {
+            e += double.parse(income['gross']);
+          } else if (income['type'] == 'Przychód' && income['source'] == 'FreeNow') {
+            f += double.parse(income['gross']);
+          } else if (income['type'] == 'Bonus' && income['source'] == 'FreeNow') {
+            g += double.parse(income['gross']);
+          }
         }
       }
     }
 
-    for (var invoice in invoicesData) {
-      DateTime invoiceDate = DateTime.parse(invoice['date']);
-      if (invoiceDate.month == _currentMonth && invoiceDate.year == _currentYear) {
-        h += double.parse(invoice['net']);
+    if(invoicesFile.existsSync()){
+      final String invoicesJson = await invoicesFile.readAsString();
+      final List<dynamic> invoicesData = json.decode(invoicesJson);
+
+      for (var invoice in invoicesData) {
+        DateTime invoiceDate = DateTime.parse(invoice['date']);
+        if (invoiceDate.month == _currentMonth && invoiceDate.year == _currentYear) {
+          h += double.parse(invoice['net']);
+        }
       }
     }
 
