@@ -150,49 +150,49 @@ class _PreviousTaxesScreenState extends State<PreviousTaxesScreen> {
 
   Future<void> _calculateAllMonthlyTaxes() async {
     final directory = await getApplicationDocumentsDirectory();
+
     final invoicesFile = File('${directory.path}/invoicesdata.json');
+
     final incomesFile = File('${directory.path}/incomesdata.json');
-
-    if (!await invoicesFile.exists() || !await incomesFile.exists()) {
-      // Handle case where files don't exist
-      return;
-    }
-
-    final String invoicesJson = await invoicesFile.readAsString();
-    final String incomesJson = await incomesFile.readAsString();
-
-    final List<dynamic> invoicesData = json.decode(invoicesJson);
-    final List<dynamic> incomesData = json.decode(incomesJson);
 
     Map<String, Map<String, double>> monthlyData = {};
 
-    // Process incomes
-    for (var income in incomesData) {
-      DateTime incomeDate = DateTime.parse(income['date']);
-      String monthYearKey = "${incomeDate.month}-${incomeDate.year}";
-      monthlyData.putIfAbsent(monthYearKey, () => {'b': 0.0, 'c': 0.0, 'd': 0.0, 'e': 0.0, 'f': 0.0, 'g': 0.0, 'h': 0.0, 'tax': 0.0, 'base': 0.0});
+    if(incomesFile.existsSync()){
+      final String incomesJson = await incomesFile.readAsString();
+      final List<dynamic> incomesData = json.decode(incomesJson);
 
-      if (income['type'] == 'Przychód' && income['source'] == 'Bolt') {
-        monthlyData[monthYearKey]!['b'] = (monthlyData[monthYearKey]!['b'] ?? 0) + double.parse(income['gross']);
-      } else if (income['type'] == 'Bonus' && income['source'] == 'Bolt') {
-        monthlyData[monthYearKey]!['c'] = (monthlyData[monthYearKey]!['c'] ?? 0) + double.parse(income['gross']);
-      } else if (income['type'] == 'Przychód' && income['source'] == 'Uber') {
-        monthlyData[monthYearKey]!['d'] = (monthlyData[monthYearKey]!['d'] ?? 0) + double.parse(income['gross']);
-      } else if (income['type'] == 'Bonus' && income['source'] == 'Uber') {
-        monthlyData[monthYearKey]!['e'] = (monthlyData[monthYearKey]!['e'] ?? 0) + double.parse(income['gross']);
-      } else if (income['type'] == 'Przychód' && income['source'] == 'FreeNow') {
-        monthlyData[monthYearKey]!['f'] = (monthlyData[monthYearKey]!['f'] ?? 0) + double.parse(income['gross']);
-      } else if (income['type'] == 'Bonus' && income['source'] == 'FreeNow') {
-        monthlyData[monthYearKey]!['g'] = (monthlyData[monthYearKey]!['g'] ?? 0) + double.parse(income['gross']);
+      for (var income in incomesData) {
+        DateTime incomeDate = DateTime.parse(income['date']);
+        String monthYearKey = "${incomeDate.month}-${incomeDate.year}";
+        monthlyData.putIfAbsent(monthYearKey, () => {'b': 0.0, 'c': 0.0, 'd': 0.0, 'e': 0.0, 'f': 0.0, 'g': 0.0, 'h': 0.0, 'tax': 0.0, 'base': 0.0, 'vat': 0.0});
+
+        if (income['type'] == 'Przychód' && income['source'] == 'Bolt') {
+          monthlyData[monthYearKey]!['b'] = (monthlyData[monthYearKey]!['b'] ?? 0) + double.parse(income['gross']);
+        } else if (income['type'] == 'Bonus' && income['source'] == 'Bolt') {
+          monthlyData[monthYearKey]!['c'] = (monthlyData[monthYearKey]!['c'] ?? 0) + double.parse(income['gross']);
+        } else if (income['type'] == 'Przychód' && income['source'] == 'Uber') {
+          monthlyData[monthYearKey]!['d'] = (monthlyData[monthYearKey]!['d'] ?? 0) + double.parse(income['gross']);
+        } else if (income['type'] == 'Bonus' && income['source'] == 'Uber') {
+          monthlyData[monthYearKey]!['e'] = (monthlyData[monthYearKey]!['e'] ?? 0) + double.parse(income['gross']);
+        } else if (income['type'] == 'Przychód' && income['source'] == 'FreeNow') {
+          monthlyData[monthYearKey]!['f'] = (monthlyData[monthYearKey]!['f'] ?? 0) + double.parse(income['gross']);
+        } else if (income['type'] == 'Bonus' && income['source'] == 'FreeNow') {
+          monthlyData[monthYearKey]!['g'] = (monthlyData[monthYearKey]!['g'] ?? 0) + double.parse(income['gross']);
+        }
       }
     }
 
-    // Process invoices
-    for (var invoice in invoicesData) {
-      DateTime invoiceDate = DateTime.parse(invoice['date']);
-      String monthYearKey = "${invoiceDate.month}-${invoiceDate.year}";
-      monthlyData.putIfAbsent(monthYearKey, () => {'b': 0.0, 'c': 0.0, 'd': 0.0, 'e': 0.0, 'f': 0.0, 'g': 0.0, 'h': 0.0, 'tax': 0.0, 'base': 0.0});
-      monthlyData[monthYearKey]!['h'] = (monthlyData[monthYearKey]!['h'] ?? 0) + double.parse(invoice['net']);
+    if(invoicesFile.existsSync()){
+      final String invoicesJson = await invoicesFile.readAsString();
+      final List<dynamic> invoicesData = json.decode(invoicesJson);
+
+      for (var invoice in invoicesData) {
+        DateTime invoiceDate = DateTime.parse(invoice['date']);
+        String monthYearKey = "${invoiceDate.month}-${invoiceDate.year}";
+        monthlyData.putIfAbsent(monthYearKey, () => {'b': 0.0, 'c': 0.0, 'd': 0.0, 'e': 0.0, 'f': 0.0, 'g': 0.0, 'h': 0.0, 'tax': 0.0, 'base': 0.0, 'vat': 0.0});
+        monthlyData[monthYearKey]!['h'] = (monthlyData[monthYearKey]!['h'] ?? 0) + double.parse(invoice['net']);
+        monthlyData[monthYearKey]!['vat'] = (monthlyData[monthYearKey]!['vat'] ?? 0) + (double.parse(invoice['gross']) - double.parse(invoice['net']));
+      }
     }
 
     // Calculate tax and base for each month
@@ -253,6 +253,8 @@ class _PreviousTaxesScreenState extends State<PreviousTaxesScreen> {
                 children: <Widget>[
                   Text("Podstawa: ${taxData['base']?.toStringAsFixed(2) ?? '-184.92'} zł"),
                   Text("Podatek: ${taxData['tax']?.toStringAsFixed(2) ?? '-15.72'} zł"),
+                  Text("Faktury (netto): ${taxData['h']?.toStringAsFixed(2) ?? '0'} zł"),
+                  Text("Faktury (vat): ${taxData['vat']?.toStringAsFixed(2) ?? '0'} zł")
                 ],
               ),
             ),
