@@ -521,7 +521,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           children: [
             _buildDetailRow('Data:', _formatDate(widget.invoice['date'])),
             _buildDetailRow('Brutto:', "${widget.invoice['gross']} zł"),
-            _buildDetailRow('VAT:', "${widget.invoice['vat']}%"),
+            _buildDetailRow('VAT:', "${(double.parse(widget.invoice['gross']) - double.parse(widget.invoice['net'])).toStringAsFixed(2).trim()} zł (${widget.invoice['vat']}%)"),
             _buildDetailRow('Netto:', "${widget.invoice['net']} zł"),
             _buildImageDisplay(widget.invoice['imagePath']),
             const SizedBox(height: 20),
