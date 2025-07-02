@@ -168,11 +168,23 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
   final _grossController = TextEditingController();
   final _bonusController = TextEditingController();
 
-  final List<String> _sources = [
-    "Uber",
-    "Bolt",
-    "FreeNow"
+  final List<Map<String, dynamic>> _sources = [
+    {
+      'name': "Uber",
+      'logo': 'assets/uber_logo.png' // Przykładowa ścieżka do logo
+    },
+    {
+      'name': "Bolt",
+      'logo': 'assets/bolt_logo.png' // Przykładowa ścieżka do logo
+    },
+    {
+      'name': "FreeNow",
+      'logo': 'assets/freenow_logo.png' // Przykładowa ścieżka do logo
+    }
   ];
+
+  //TODO: dodać loga aplikacji do assets
+  //TODO: dodać wyświetlanie logo aplikacji w dropdownie
 
   Future<void> _pickDate() async {
     DateTime? pickedDate = await showDatePicker(
@@ -285,10 +297,19 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: 'Źródło'),
                         value: _source,
-                        items: _sources.map((String value) {
+                        items: _sources.map((Map<String, dynamic> sourceData) {
+                          String appName = sourceData['name'];
+                          String appLogoPath = sourceData['logo'];
                           return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
+                            value: appName,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(appName),
+                                const SizedBox(width: 24),
+                                Image.asset(appLogoPath, width: 24, height: 24)
+                              ],
+                            ),
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
