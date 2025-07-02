@@ -183,9 +183,6 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
     }
   ];
 
-  //TODO: dodać loga aplikacji do assets
-  //TODO: dodać wyświetlanie logo aplikacji w dropdownie
-
   Future<void> _pickDate() async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -285,6 +282,8 @@ class _NewIncomeScreenState extends State<NewIncomeScreen> {
                 key: _formKey,
                 child: ListView(
                     children: [
+                      // Make sure to wrap showDatePicker with a Localizations widget
+                      // or ensure MaterialApp provides MaterialLocalizations.
                       ListTile(
                         title: Text(_selectedDate == null
                             ? 'Wybierz datę'
