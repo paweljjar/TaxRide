@@ -455,6 +455,22 @@ class _IncomeDetailScreenState extends State<IncomeDetailScreen> {
                 const SizedBox(height: 20),
                 ElevatedButton(
                     onPressed: () {
+                      // Navigate to the edit invoice screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => EditIncomeScreen(income: widget.income)),
+                      ).then((value) {
+                        if(value == true && mounted){
+                          // Reload data in InvoicesScreen
+                          Navigator.pop(context, true);
+                        }
+                      });
+                    },
+                    child: const Text('Edytuj')
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                    onPressed: () {
                       showDialog(
                           context: context,
                           builder: (BuildContext context) {
@@ -482,6 +498,162 @@ class _IncomeDetailScreenState extends State<IncomeDetailScreen> {
                 )
               ]
           )
+      ),
+    );
+  }
+}
+
+//#endregion
+
+//#region editIncome
+
+class EditIncomeScreen extends StatefulWidget {
+  final Map<String, dynamic> income;
+
+  const EditIncomeScreen({super.key, required this.income});
+
+  @override
+  State<EditIncomeScreen> createState() => _EditIncomeScreenState();
+}
+
+class _EditIncomeScreenState extends State<EditIncomeScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late DateTime? _selectedDate;
+  late TextEditingController _grossController;
+  String? _selectedSource;
+
+  final List<Map<String, dynamic>> _sources = [
+    {
+      'name': "Uber",
+      'logo': 'assets/uber_logo.png'
+    },
+    {
+      'name': "Bolt",
+      'logo': 'assets/bolt_logo.png'
+    },
+    {
+      'name': "FreeNow",
+      'logo': 'assets/freenow_logo.png'
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime.parse(widget.income['date']);
+    _grossController = TextEditingController(text: widget.income['gross']);
+    _selectedSource = widget.income['source'];
+  }
+
+  Future<void> _pickDate() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
+  Future<void> _updateIncome() async {
+    if (_formKey.currentState!.validate() && _selectedDate != null) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/incomesdata.json');
+      List<dynamic> incomes = [];
+
+      if (await file.exists()) {
+        final contents = await file.readAsString();
+        if (contents.isNotEmpty) {
+          incomes = json.decode(contents) as List<dynamic>;
+        }
+      }
+
+      int index = incomes.indexWhere((inc) => inc['id'] == widget.income['id']);
+      if (index != -1) {
+        incomes[index] = {
+          'id': widget.income['id'],
+          'date': _selectedDate!.toIso8601String(),
+          'source': _selectedSource,
+          'type': widget.income['type'], // Assuming type does not change or is handled elsewhere
+          'gross': _grossController.text.trim(),
+        };
+        await file.writeAsString(json.encode(incomes));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Zaktualizowano wpis'), action: SnackBarAction(label: 'OK', onPressed: () {})),
+        );
+        Navigator.pop(context, true); // Indicate success
+      }
+    } else if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Proszę wybrać datę'), action: SnackBarAction(label: 'OK', onPressed: () {})),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edytuj Wpis'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context, false),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              ListTile(
+                title: Text(_selectedDate == null ? 'Wybierz datę' : 'Data: ${_selectedDate!.day.toString().padLeft(2, "0")}.${_selectedDate!.month.toString().padLeft(2, "0")}.${_selectedDate!.year}'),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: _pickDate,
+              ),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Źródło'),
+                value: _selectedSource,
+                items: _sources.map((Map<String, dynamic> sourceData) {
+                  String appName = sourceData['name'];
+                  String appLogoPath = sourceData['logo'];
+                  return DropdownMenuItem<String>(
+                    value: appName,
+                    child: Row(
+                      children: [
+                        Image.asset(appLogoPath, width: 24, height: 24),
+                        const SizedBox(width: 10),
+                        Text(appName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedSource = newValue;
+                  });
+                },
+                validator: (value) => value == null || value.isEmpty ? 'Proszę wybrać źródło' : null,
+              ),
+              TextFormField(
+                controller: _grossController,
+                decoration: InputDecoration(labelText: 'Kwota (${widget.income['type']})'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Proszę podać kwotę';
+                  if (double.tryParse(value) == null) return 'Proszę podać poprawną liczbę';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(onPressed: _updateIncome, child: const Text('Zapisz zmiany')),
+            ],
+          ),
+        ),
       ),
     );
   }
