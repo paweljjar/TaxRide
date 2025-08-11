@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:image_picker/image_picker.dart';
 
 //#region invoices
 
@@ -169,7 +168,6 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
   final _grossController = TextEditingController();
   String? _selectedVatRate;
   double _netValue = 0.0;
-  XFile? _imageFile;
   double _vatValue = 0.0;
 
   final List<String> _vatRates = [
@@ -178,47 +176,6 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
     '5%',
     '0%',
   ];
-
-  Future<void> _pickImage(ImageSource source) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: source);
-
-    if (image != null) {
-      setState(() {
-        _imageFile = image;
-      });
-    }
-  }
-
- void _showImageSourceActionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (BuildContext bc) {
-        return SafeArea(
-          child: Wrap(
-            children: <Widget>[
-              ListTile(
-                  leading: const Icon(Icons.photo_library),
-                  title: const Text('Wybierz z galerii'),
-                  onTap: () {
-                    _pickImage(ImageSource.gallery);
-                    Navigator.of(context).pop();
-                  }),
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Zrób zdjęcie'),
-                onTap: () {
-                  _pickImage(ImageSource.camera);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      });
-  }
-
-
 
   Future<void> _pickDate() async {
     DateTime? pickedDate = await showDatePicker(
@@ -281,8 +238,7 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
         'vat': double.tryParse(
             _selectedVatRate!.substring(0, _selectedVatRate!.length - 1)) ??
             0.0,
-        'net': _netValue.toStringAsFixed(2).trim(),
-        'imagePath': _imageFile?.path,
+        'net': _netValue.toStringAsFixed(2).trim()
         // Include imagePath only if an image is selected
         // 'imagePath': _imageFile != null ? _imageFile!.path : null,
 
@@ -338,31 +294,6 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
                   return null;
                 },
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _imageFile == null
-                          ? 'Brak zdjęcia'
-                          : 'Wybrano zdjęcie',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _showImageSourceActionSheet(context),
-                      child: const Text('Wybierz zdjęcie'),
-                    ),
-                  ],
-                ),
-              ),
-              if (_imageFile != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Image.file(
-                    File(_imageFile!.path),
-                    height: 200, // Adjust as needed
-                  ),),
               TextFormField(
                 controller: _grossController,
                 decoration: const InputDecoration(labelText: 'Brutto'),
@@ -483,16 +414,6 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildImageDisplay(String? imagePath) {
-    if (imagePath != null && imagePath.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        child: Image.file(File(imagePath)),
-      );
-    }
-    return const SizedBox.shrink(); // Return an empty widget if no image
-  }
-
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Brak danych';
     try {
@@ -523,8 +444,24 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             _buildDetailRow('Brutto:', "${widget.invoice['gross']} zł"),
             _buildDetailRow('VAT:', "${(double.parse(widget.invoice['gross']) - double.parse(widget.invoice['net'])).toStringAsFixed(2).trim()} zł (${widget.invoice['vat']}%)"),
             _buildDetailRow('Netto:', "${widget.invoice['net']} zł"),
-            _buildImageDisplay(widget.invoice['imagePath']),
             const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: () {
+                // Navigate to the edit invoice screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EditInvoiceScreen(invoice: widget.invoice)),
+                ).then((value) {
+                  if(value == true && mounted){
+                    // Reload data in InvoicesScreen
+                    Navigator.pop(context, true);
+                  }
+                });
+              },
+              child: const Text('Edytuj')
+            ),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: () {
                 showDialog(
@@ -559,4 +496,156 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 }
 
+//#endregion
+
+//#region editinvoice
+class EditInvoiceScreen extends StatefulWidget {
+  final Map<String, dynamic> invoice;
+
+  const EditInvoiceScreen({super.key, required this.invoice});
+
+  @override
+  State<EditInvoiceScreen> createState() => _EditInvoiceScreenState();
+}
+
+class _EditInvoiceScreenState extends State<EditInvoiceScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late DateTime? _selectedDate;
+  late TextEditingController _titleController;
+  late TextEditingController _grossController;
+  String? _selectedVatRate;
+  double _netValue = 0.0;
+  double _vatValue = 0.0;
+
+  final List<String> _vatRates = ['23%', '8%', '5%', '0%'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime.parse(widget.invoice['date']);
+    _titleController = TextEditingController(text: widget.invoice['title']);
+    _grossController = TextEditingController(text: widget.invoice['gross']);
+    _selectedVatRate = "${widget.invoice['vat'].toString().split('.')[0]}%";
+    _calculate();
+  }
+
+  Future<void> _pickDate() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
+  void _calculate() {
+    final double gross = double.tryParse(_grossController.text) ?? 0.0;
+    final double vatRatePercentage = double.tryParse(_selectedVatRate!.replaceAll('%', '')) ?? 0.0;
+    final double vatRate = vatRatePercentage / 100;
+    setState(() {
+      _netValue = gross / (1 + vatRate);
+      _vatValue = gross - _netValue;
+    });
+  }
+
+  Future<void> _updateInvoice() async {
+    if (_formKey.currentState!.validate() && _selectedDate != null) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/invoicesdata.json');
+      List<dynamic> invoices = [];
+
+      if (await file.exists()) {
+        final contents = await file.readAsString();
+        if (contents.isNotEmpty) {
+          invoices = json.decode(contents) as List<dynamic>;
+        }
+      }
+
+      int index = invoices.indexWhere((inv) => inv['id'] == widget.invoice['id']);
+      if (index != -1) {
+        invoices[index] = {
+          'id': widget.invoice['id'],
+          'date': _selectedDate!.toIso8601String(),
+          'title': _titleController.text.trim(),
+          'gross': _grossController.text.trim(),
+          'vat': double.parse(_selectedVatRate!.replaceAll('%', '')),
+          'net': _netValue.toStringAsFixed(2).trim(),
+        };
+        await file.writeAsString(json.encode(invoices));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Zaktualizowano fakturę'), action: SnackBarAction(label: 'OK', onPressed: () {})),
+        );
+        Navigator.pop(context, true); // Indicate success
+      }
+    } else if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Proszę wybrać datę'), action: SnackBarAction(label: 'OK', onPressed: () {})),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edytuj Fakturę'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context, false),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              ListTile(
+                title: Text(_selectedDate == null ? 'Wybierz datę' : 'Data: ${_selectedDate!.day.toString().padLeft(2, "0")}.${_selectedDate!.month.toString().padLeft(2, "0")}.${_selectedDate!.year}'),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: _pickDate,
+              ),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Tytuł'),
+                validator: (value) => value == null || value.isEmpty ? 'Proszę podać tytuł' : null,
+              ),
+              TextFormField(
+                controller: _grossController,
+                decoration: const InputDecoration(labelText: 'Brutto'),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _calculate(),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Proszę podać kwotę brutto';
+                  if (double.tryParse(value) == null) return 'Proszę podać poprawną liczbę';
+                  return null;
+                },
+              ),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Stawka VAT'),
+                value: _selectedVatRate,
+                items: _vatRates.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedVatRate = newValue;
+                    _calculate();
+                  });
+                },
+                validator: (value) => value == null || value.isEmpty ? 'Proszę wybrać stawkę VAT' : null,
+              ),
+              Padding(padding: const EdgeInsets.symmetric(vertical: 16.0), child: Text('Netto: ${_netValue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16))),
+              Padding(padding: const EdgeInsets.symmetric(vertical: 16.0), child: Text('VAT: ${_vatValue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16))),
+              ElevatedButton(onPressed: _updateInvoice, child: const Text('Zapisz zmiany')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 //#endregion

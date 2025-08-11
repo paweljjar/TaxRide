@@ -17,7 +17,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   double _tax = 0.0;
   double _base = 0.0;
 
-  final int _currentMonth = DateTime.now().month;
+  final int _currentMonth = (DateTime.now().month - 1 < 1 ? 12 : DateTime.now().month - 1);
   final int _currentYear = DateTime.now().year;
 
   Future<void> _calculateTaxes() async {
@@ -96,20 +96,20 @@ class _TaxesScreenState extends State<TaxesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  "Podatek za ten miesiąc",
-                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)
+                  "Podatek za poprzedni miesiąc",
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
               ),
               Text(
                   "${_tax.toStringAsFixed(2)} zł",
-                  style: const TextStyle(fontSize: 25)
+                  style: const TextStyle(fontSize: 22)
               ),
               Text(
                   "Podstawa obliczenia podatku",
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w300)
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w300)
               ),
               Text(
                   "${_base.toStringAsFixed(2)} zł",
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w100)
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w100)
               )
             ]
         ),
