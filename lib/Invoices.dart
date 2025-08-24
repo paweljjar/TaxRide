@@ -68,12 +68,24 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     return sortedGroupedData;
   }
 
+  Map<String, double> _calculateMonthSummary(List<dynamic> monthInvoices) {
+    double totalGross = 0;
+    double totalVat = 0;
+
+    for (var invoice in monthInvoices) {
+      totalGross += double.tryParse(invoice['gross'].toString()) ?? 0.0;
+      double net = double.tryParse(invoice['net'].toString()) ?? 0.0;
+      totalVat += (double.tryParse(invoice['gross'].toString()) ?? 0.0) - net;
+    }
+
+    return {'totalGross': totalGross, 'totalVat': totalVat};
+  }
+
   @override
   void initState() {
     super.initState();
     _loadInvoices();
   }
-
   @override
   Widget build(BuildContext context) {
     final groupedInvoices = _groupInvoicesByYearMonth(_invoices);
@@ -92,39 +104,50 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                 title: Text('Rok: $year'),
                 children: months.map((month) {
                   final monthInvoices = monthsData[month]!;
+                  final monthSummary = _calculateMonthSummary(monthInvoices);
                   return ExpansionTile(
-                    title: Text('  Miesiąc: $month'),
-                    children: monthInvoices.map((invoice) {
-                      String formattedDate = 'Brak daty';
-                      if (invoice['date'] != null) {
-                        try {
-                          DateTime date = DateTime.parse(invoice['date'].split(' ')[0]);
-                          formattedDate = "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
-                        } catch (e) {
-                          if(kDebugMode) {
-                            print("Error parsing date: $e");
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(' Miesiąc: $month'),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(' Łącznie Brutto: ${monthSummary['totalGross']?.toStringAsFixed(2)} zł, Łączny VAT: ${monthSummary['totalVat']?.toStringAsFixed(2)} zł', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal, color: Colors.grey)),
+                        ),
+                      ],
+                    ),
+                    children: [
+                      ...monthInvoices.map((invoice) {
+                        String formattedDate = 'Brak daty';
+                        if (invoice['date'] != null) {
+                          try {
+                            DateTime date = DateTime.parse(invoice['date'].split(' ')[0]);
+                            formattedDate = "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
+                          } catch (e) {
+                            if(kDebugMode) {
+                              print("Error parsing date: $e");
+                            }
                           }
                         }
-                      }
-                      return Card(
-                        margin: const EdgeInsets.all(8.0),
-                        child: ListTile(
-                          title: Text(invoice['title'] ?? 'Brak tytułu'),
-                          subtitle: Text('Data: $formattedDate - Brutto: ${invoice['gross'] + ' zł' ?? 'Brak kwoty'}'),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoice: invoice)),
-                            ).then((value) => {
-                              if(value == true && mounted){
-                                Future.delayed(const Duration(milliseconds: 100)),
-                                _loadInvoices()
-                              }
-                            });
-                          },
-                        )
-                      );
-                    }).toList(),
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 4.0), // Adjusted margin
+                          child: ListTile(
+                            title: Text(invoice['title'] ?? 'Brak tytułu'),
+                            subtitle: Text('Data: $formattedDate - Brutto: ${invoice['gross'] + ' zł' ?? 'Brak kwoty'}'),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoice: invoice)),
+                              ).then((value) => {
+                                if(value == true && mounted){
+                                  _loadInvoices()
+                                }
+                              });
+                            },
+                          )
+                        );
+                      }).toList(),
+                    ]
                   );
                 }).toList(),
               );
@@ -139,7 +162,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           );
 
           if(result == true){
-            await Future.delayed(const Duration(milliseconds: 250));
             _loadInvoices();
           }
         },
@@ -207,7 +229,10 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
       }
       
       jsonList.add(data);
-      await file.writeAsString(json.encode(jsonList));
+      await file.writeAsString(json.encode(jsonList)).then((_) {
+        // After saving, reload the invoices in the InvoicesScreen
+        Navigator.pop(context, true); // Pass true to indicate success
+      });
     } catch (e) {
       if (kDebugMode) {
         print('Error saving data to JSON: $e');
@@ -244,14 +269,11 @@ class _NewInvoiceScreenState extends State<NewInvoiceScreen>{
 
       };
 
-      _saveDataToJson(formData);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Dodano'), action: SnackBarAction(label: 'OK', onPressed: () => {}),),
-      );
-
-      Navigator.pop(context, true);
-    } else if (_selectedDate == null) {
+      _saveDataToJson(formData).then((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Dodano'), action: SnackBarAction(label: 'OK', onPressed: () => {}),),
+        );
+      });    } else if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: const Text('Proszę wybrać datę'), action: SnackBarAction(label: 'OK', onPressed: () => {}),),
       );
