@@ -61,7 +61,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       var sortedMonths = grouped[year]!.keys.toList()..sort((a, b) => b.compareTo(a));
       Map<String, List<dynamic>> sortedMonthData = {};
       for (var month in sortedMonths) {
-        sortedMonthData[month] = grouped[year]![month]!;
+        // Sort invoices within each month by day in ascending order
+        var invoicesInMonth = grouped[year]![month]!;
+        invoicesInMonth.sort((a, b) => DateTime.parse(a['date']).day.compareTo(DateTime.parse(b['date']).day));
+        sortedMonthData[month] = invoicesInMonth;
       }
       sortedGroupedData[year] = sortedMonthData;
     }
