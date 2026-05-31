@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taxride/invoices.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -35,9 +36,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Center(
             child: Text('Taxes'),
           ),
-          Center(
-            child: Text('Invoices'),
-          ),
+          InvoicesScreen(),
           Center(
             child: Text('Incomes'),
           )
