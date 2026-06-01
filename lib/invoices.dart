@@ -208,6 +208,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                               ),
                               onDismissed: (direction) => _deleteInvoice(invoice.id),
                               child: ListTile(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => InvoiceDetailScreen(
+                                        invoice: invoice,
+                                        onDelete: () => _deleteInvoice(invoice.id),
+                                      ),
+                                    ),
+                                  );
+                                },
                                 leading: const Icon(Icons.description_outlined),
                                 title: Text(
                                   invoice.title,
@@ -260,6 +271,108 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         },
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class InvoiceDetailScreen extends StatelessWidget {
+  final Invoice invoice;
+  final VoidCallback onDelete;
+
+  const InvoiceDetailScreen({
+    super.key,
+    required this.invoice,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Szczegóły Faktury'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Usuń fakturę'),
+                  content: const Text('Czy na pewno chcesz usunąć tę fakturę?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('ANULUJ'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pop(context);
+                        onDelete();
+                      },
+                      child: const Text('USUŃ', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.receipt_long, size: 64, color: Colors.blueGrey),
+                    const SizedBox(height: 16),
+                    Text(
+                      invoice.title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const Divider(height: 32),
+                    _buildDetailRow('Data wystawienia', DateFormat('dd.MM.yyyy').format(invoice.date)),
+                    _buildDetailRow('Kwota Brutto', '${invoice.gross} zł', isBold: true),
+                    _buildDetailRow('Kwota Netto', '${invoice.net} zł'),
+                    _buildDetailRow('Stawka VAT', '${invoice.vat.toInt()}%'),
+                    _buildDetailRow(
+                      'Wartość VAT',
+                      '${(double.parse(invoice.gross.replaceAll(',', '.')) - double.parse(invoice.net.replaceAll(',', '.'))).toStringAsFixed(2)} zł',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
