@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 
 class Invoice {
   final String id;
@@ -132,41 +133,111 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     );
   }
 
+  Map<int, Map<int, List<Invoice>>> _getNestedGroupedInvoices() {
+    final sortedInvoices = List<Invoice>.from(_invoices)
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final Map<int, Map<int, List<Invoice>>> groups = {};
+
+    for (var invoice in sortedInvoices) {
+      final year = invoice.date.year;
+      final month = invoice.date.month;
+
+      if (!groups.containsKey(year)) {
+        groups[year] = {};
+      }
+      if (!groups[year]!.containsKey(month)) {
+        groups[year]![month] = [];
+      }
+      groups[year]![month]!.add(invoice);
+    }
+    return groups;
+  }
+
+  String _getMonthName(int month) {
+    final dateTime = DateTime(2000, month);
+    return DateFormat('MMMM', 'pl_PL').format(dateTime);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final nestedGroups = _getNestedGroupedInvoices();
+    final years = nestedGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Moje Faktury')),
+      appBar: AppBar(
+        title: const Text('Moje Faktury'),
+        centerTitle: true,
+        elevation: 2,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _invoices.isEmpty
-          ? const Center(child: Text('Brak faktur'))
-          : ListView.builder(
-        itemCount: _invoices.length,
-        itemBuilder: (context, index) {
-          final invoice = _invoices[index];
-          return Dismissible(
-            key: Key(invoice.id),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Icon(Icons.delete, color: Colors.white),
-            ),
-            onDismissed: (direction) {
-              _deleteInvoice(invoice.id);
-            },
-            child: ListTile(
-              leading: const Icon(Icons.description),
-              title: Text(invoice.title),
-              subtitle:
-                  Text('Data: ${invoice.date.toString().substring(0, 10)}'),
-              trailing: Text('${invoice.gross} zł',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          );
-        },
-      ),
+              ? const Center(child: Text('Brak faktur'))
+              : ListView.builder(
+                  itemCount: years.length,
+                  itemBuilder: (context, yearIndex) {
+                    final year = years[yearIndex];
+                    final monthsMap = nestedGroups[year]!;
+                    final months = monthsMap.keys.toList()..sort((a, b) => b.compareTo(a));
+
+                    return ExpansionTile(
+                      title: Text(
+                        '$year',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      children: months.map((month) {
+                        final invoices = monthsMap[month]!;
+                        return ExpansionTile(
+                          title: Text(
+                            _getMonthName(month).toUpperCase(),
+                            style: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          children: invoices.map((invoice) {
+                            return Dismissible(
+                              key: Key(invoice.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: const Icon(Icons.delete, color: Colors.white),
+                              ),
+                              onDismissed: (direction) => _deleteInvoice(invoice.id),
+                              child: ListTile(
+                                leading: const Icon(Icons.description_outlined),
+                                title: Text(
+                                  invoice.title,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                subtitle: Text(
+                                  'Data: ${DateFormat('dd.MM.yyyy').format(invoice.date)}',
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${invoice.gross} zł',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const Text('brutto', style: TextStyle(fontSize: 10)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
