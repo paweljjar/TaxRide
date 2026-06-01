@@ -110,6 +110,16 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
+  Future<void> _editInvoice(String oldId, Invoice updatedInvoice) async {
+    final index = _invoices.indexWhere((inv) => inv.id == oldId);
+    if (index != -1) {
+      final updatedList = List<Invoice>.from(_invoices);
+      updatedList[index] = updatedInvoice;
+      await _saveInvoices(updatedList);
+      // Odświeżenie widoku następuje wewnątrz _saveInvoices poprzez setState
+    }
+  }
+
   Future<void> _deleteInvoice(String id) async {
     final index = _invoices.indexWhere((inv) => inv.id == id);
     final deletedInvoice = _invoices[index];
@@ -215,6 +225,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                       builder: (context) => InvoiceDetailScreen(
                                         invoice: invoice,
                                         onDelete: () => _deleteInvoice(invoice.id),
+                                        onEdit: (updated) => _editInvoice(invoice.id, updated),
                                       ),
                                     ),
                                   );
@@ -279,19 +290,49 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 class InvoiceDetailScreen extends StatelessWidget {
   final Invoice invoice;
   final VoidCallback onDelete;
+  final Function(Invoice) onEdit;
 
   const InvoiceDetailScreen({
     super.key,
     required this.invoice,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Znajdujemy aktualną wersję faktury z kontekstu, jeśli potrzebujemy dynamicznego odświeżania,
+    // ale w tym modelu nawigacji najprościej zamknąć ekran po edycji lub użyć StatefulWidget.
+    // Tutaj po edycji wrócimy do listy głównej.
+
+    final double grossVal = double.tryParse(invoice.gross.replaceAll(',', '.')) ?? 0;
+    final double netVal = double.tryParse(invoice.net.replaceAll(',', '.')) ?? 0;
+    final String vatVal = (grossVal - netVal).toStringAsFixed(2);
+
+    // Formatowanie daty do wyświetlenia
+    final String formattedDate = DateFormat('dd.MM.yyyy').format(invoice.date);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Szczegóły Faktury'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddInvoiceScreen(
+                    invoiceToEdit: invoice,
+                    onSave: (updatedInvoice) {
+                      onEdit(updatedInvoice);
+                      Navigator.pop(context); // Wróć do listy po edycji
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () {
@@ -340,13 +381,13 @@ class InvoiceDetailScreen extends StatelessWidget {
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const Divider(height: 32),
-                    _buildDetailRow('Data wystawienia', DateFormat('dd.MM.yyyy').format(invoice.date)),
+                    _buildDetailRow('Data wystawienia', formattedDate),
                     _buildDetailRow('Kwota Brutto', '${invoice.gross} zł', isBold: true),
                     _buildDetailRow('Kwota Netto', '${invoice.net} zł'),
                     _buildDetailRow('Stawka VAT', '${invoice.vat.toInt()}%'),
                     _buildDetailRow(
                       'Wartość VAT',
-                      '${(double.parse(invoice.gross.replaceAll(',', '.')) - double.parse(invoice.net.replaceAll(',', '.'))).toStringAsFixed(2)} zł',
+                      '$vatVal zł',
                     ),
                   ],
                 ),
@@ -380,8 +421,13 @@ class InvoiceDetailScreen extends StatelessWidget {
 
 class AddInvoiceScreen extends StatefulWidget {
   final Function(Invoice) onSave;
+  final Invoice? invoiceToEdit;
 
-  const AddInvoiceScreen({super.key, required this.onSave});
+  const AddInvoiceScreen({
+    super.key,
+    required this.onSave,
+    this.invoiceToEdit,
+  });
 
   @override
   State<AddInvoiceScreen> createState() => _AddInvoiceScreenState();
@@ -395,6 +441,20 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   final _netController = TextEditingController();
   double _selectedVat = 23.0;
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.invoiceToEdit != null) {
+      final inv = widget.invoiceToEdit!;
+      _titleController.text = inv.title;
+      _grossController.text = inv.gross;
+      _selectedVat = inv.vat;
+      _selectedDate = inv.date;
+      // Netto i VAT wyliczą się same dzięki _calculateValues() w build/init
+      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateValues());
+    }
+  }
 
   Future<void> _presentDatePicker() async {
     final DateTime? picked = await showDatePicker(
@@ -430,7 +490,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
 
     if (_formKey.currentState!.validate()) {
       final newInvoice = Invoice(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.invoiceToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         date: _selectedDate,
         title: _titleController.text,
         gross: _grossController.text,
@@ -446,7 +506,9 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dodaj Fakturę')),
+      appBar: AppBar(
+        title: Text(widget.invoiceToEdit == null ? 'Dodaj Fakturę' : 'Edytuj Fakturę'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -514,7 +576,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               ElevatedButton(
                 onPressed: _submitData,
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                child: const Text('Zapisz fakturę'),
+                child: Text(widget.invoiceToEdit == null ? 'Zapisz fakturę' : 'Zapisz zmiany'),
               ),
             ],
           ),
