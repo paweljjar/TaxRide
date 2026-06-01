@@ -135,7 +135,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   Map<int, Map<int, List<Invoice>>> _getNestedGroupedInvoices() {
     final sortedInvoices = List<Invoice>.from(_invoices)
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     final Map<int, Map<int, List<Invoice>>> groups = {};
 
@@ -162,7 +162,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   Widget build(BuildContext context) {
     final nestedGroups = _getNestedGroupedInvoices();
-    final years = nestedGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+    final years = nestedGroups.keys.toList()..sort((a, b) => a.compareTo(b));
 
     return Scaffold(
       appBar: AppBar(
@@ -179,7 +179,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   itemBuilder: (context, yearIndex) {
                     final year = years[yearIndex];
                     final monthsMap = nestedGroups[year]!;
-                    final months = monthsMap.keys.toList()..sort((a, b) => b.compareTo(a));
+                    final months = monthsMap.keys.toList()..sort((a, b) => a.compareTo(b));
 
                     return ExpansionTile(
                       title: Text(
