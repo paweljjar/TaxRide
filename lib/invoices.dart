@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -263,7 +264,10 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               TextFormField(
                 controller: _grossController,
                 decoration: const InputDecoration(labelText: 'Kwota Brutto'),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
+                ],
                 validator: (value) => value!.isEmpty ? 'Wpisz kwotę' : null,
                 onChanged: (value) => _calculateValues(),
               ),
