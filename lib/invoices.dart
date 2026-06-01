@@ -109,10 +109,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     }
   }
 
-  Future<void> _deleteInvoice(int index) async {
+  Future<void> _deleteInvoice(String id) async {
+    final index = _invoices.indexWhere((inv) => inv.id == id);
     final deletedInvoice = _invoices[index];
-    final updatedInvoices = List<Invoice>.from(_invoices);
-    updatedInvoices.removeAt(index);
+    final updatedInvoices = _invoices.where((inv) => inv.id != id).toList();
     await _saveInvoices(updatedInvoices);
 
     if (!mounted) return;
@@ -154,7 +154,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               child: const Icon(Icons.delete, color: Colors.white),
             ),
             onDismissed: (direction) {
-              _deleteInvoice(index);
+              _deleteInvoice(invoice.id);
             },
             child: ListTile(
               leading: const Icon(Icons.description),
