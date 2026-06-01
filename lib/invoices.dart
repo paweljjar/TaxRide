@@ -110,11 +110,25 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Future<void> _deleteInvoice(int index) async {
+    final deletedInvoice = _invoices[index];
     final updatedInvoices = List<Invoice>.from(_invoices);
     updatedInvoices.removeAt(index);
     await _saveInvoices(updatedInvoices);
+
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Faktura została usunięta')),
+      SnackBar(
+        content: const Text('Faktura została usunięta'),
+        action: SnackBarAction(
+          label: 'COFNIJ',
+          onPressed: () {
+            final restoredInvoices = List<Invoice>.from(_invoices);
+            restoredInvoices.insert(index, deletedInvoice);
+            _saveInvoices(restoredInvoices);
+          },
+        ),
+      ),
     );
   }
 
