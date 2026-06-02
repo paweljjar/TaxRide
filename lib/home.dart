@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:taxride/incomes.dart';
 import 'package:taxride/invoices.dart';
+import 'package:taxride/taxes.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -34,9 +35,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       body: TabBarView(
         controller: _tabController,
         children: [
-          Center(
-            child: Text('Taxes'),
-          ),
+          TaxesScreen(),
           InvoicesScreen(),
           IncomesScreen()
         ],
