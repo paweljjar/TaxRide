@@ -112,14 +112,14 @@ class _IncomesScreenState extends State<IncomesScreen> {
     } catch (e) {
       debugPrint("Saving error: $e");
     }
+  }
 
-    Future<void> _editIncome(String oldId, Income updatedIncome) async {
-      final index = _incomes.indexWhere((inv) => inv.id == oldId);
-      if (index != -1) {
-        final updatedList = List<Income>.from(_incomes);
-        updatedList[index] = updatedIncome;
-        await _saveIncomes(updatedList);
-      }
+  Future<void> _editIncome(String oldId, Income updatedIncome) async {
+    final index = _incomes.indexWhere((inv) => inv.id == oldId);
+    if (index != -1) {
+      final updatedList = List<Income>.from(_incomes);
+      updatedList[index] = updatedIncome;
+      await _saveIncomes(updatedList);
     }
   }
 
@@ -224,7 +224,16 @@ class _IncomesScreenState extends State<IncomesScreen> {
                               onDismissed: (direction) => _deleteIncome(income.id),
                               child: ListTile(
                                 onTap: () {
-                                  //TODO: IncomeDetailsScreen
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => IncomeDetailScreen(
+                                        income: income,
+                                        onDelete: () => _deleteIncome(income.id),
+                                        onEdit: (updated) => _editIncome(income.id, updated),
+                                      ),
+                                    ),
+                                  );
                                 },
                                 leading: const Icon(Icons.description_outlined),
                                 title: Text(
@@ -263,6 +272,113 @@ class _IncomesScreenState extends State<IncomesScreen> {
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white)
       )
+    );
+  }
+}
+
+class IncomeDetailScreen extends StatelessWidget {
+  final Income income;
+  final VoidCallback onDelete;
+  final Function(Income) onEdit;
+
+  const IncomeDetailScreen({
+    super.key,
+    required this.income,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final double grossVal = double.tryParse(income.gross.replaceAll(',', '.')) ?? 0;
+    final String formattedDate = DateFormat('dd.MM.yyyy').format(income.date);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Szczegóły Przychodu'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () {
+              //TODO: AddIncomeScreen
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Usuń przychód'),
+                  content: const Text('Czy na pewno chcesz usunąć ten przychód?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('ANULUJ'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pop(context);
+                        onDelete();
+                      },
+                      child: const Text('USUŃ', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.receipt_long, size: 64, color: Colors.blueGrey),
+                    const SizedBox(height: 16),
+                    Text(
+                      income.source.name.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const Divider(height: 32),
+                    _buildDetailRow('Data wystawienia', formattedDate),
+                    _buildDetailRow('Kwota Brutto', '$grossVal zł', isBold: true),
+                  ]
+                )
+              )
+            )
+          ]
+        )
+      )
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

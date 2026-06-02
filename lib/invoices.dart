@@ -299,15 +299,10 @@ class InvoiceDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Znajdujemy aktualną wersję faktury z kontekstu, jeśli potrzebujemy dynamicznego odświeżania,
-    // ale w tym modelu nawigacji najprościej zamknąć ekran po edycji lub użyć StatefulWidget.
-    // Tutaj po edycji wrócimy do listy głównej.
-
     final double grossVal = double.tryParse(invoice.gross.replaceAll(',', '.')) ?? 0;
     final double netVal = double.tryParse(invoice.net.replaceAll(',', '.')) ?? 0;
     final String vatVal = (grossVal - netVal).toStringAsFixed(2);
 
-    // Formatowanie daty do wyświetlenia
     final String formattedDate = DateFormat('dd.MM.yyyy').format(invoice.date);
 
     return Scaffold(
@@ -324,7 +319,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                     invoiceToEdit: invoice,
                     onSave: (updatedInvoice) {
                       onEdit(updatedInvoice);
-                      Navigator.pop(context); // Wróć do listy po edycji
+                      Navigator.pop(context);
                     },
                   ),
                 ),
@@ -449,7 +444,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
       _grossController.text = inv.gross;
       _selectedVat = inv.vat;
       _selectedDate = inv.date;
-      // Netto i VAT wyliczą się same dzięki _calculateValues() w build/init
       WidgetsBinding.instance.addPostFrameCallback((_) => _calculateValues());
     }
   }
@@ -469,8 +463,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   void _calculateValues() {
     final double gross = double.tryParse(_grossController.text.replaceAll(',', '.')) ?? 0;
 
-    // Net = Gross / (1 + VAT%)
-    // Example: 123 / 1.23 = 100
     final double net = gross / (1 + (_selectedVat / 100));
     final double vatAmount = gross - net;
 
@@ -481,7 +473,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   }
 
   void _submitData() {
-    // Re-calculate one last time to ensure consistency before saving
     if (_grossController.text.isNotEmpty) {
       _calculateValues();
     }
@@ -560,7 +551,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   labelText: 'Wyliczony VAT',
                   filled: true,
                 ),
-                readOnly: true, // User cannot type here
+                readOnly: true,
               ),
               TextFormField(
                 controller: _netController,
@@ -568,7 +559,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   labelText: 'Kwota Netto (wyliczona)',
                   filled: true,
                 ),
-                readOnly: true, // User cannot type here
+                readOnly: true,
               ),
               const SizedBox(height: 20),
               ElevatedButton(
