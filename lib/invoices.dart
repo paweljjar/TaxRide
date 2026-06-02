@@ -115,7 +115,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       final updatedList = List<Invoice>.from(_invoices);
       updatedList[index] = updatedInvoice;
       await _saveInvoices(updatedList);
-      // Odświeżenie widoku następuje wewnątrz _saveInvoices poprzez setState
     }
   }
 
