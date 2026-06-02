@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -267,7 +268,15 @@ class _IncomesScreenState extends State<IncomesScreen> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          //TODO: AddIncomeScreen
+          final newIncome = await Navigator.push<Income>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddIncomeScreen(onSave: (income) => income),
+            ),
+          );
+          if (newIncome != null) {
+            _saveIncomes([..._incomes, newIncome]);
+          }
         },
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white)
@@ -300,7 +309,15 @@ class IncomeDetailScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
-              //TODO: AddIncomeScreen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddIncomeScreen(
+                    incomeToEdit: income,
+                    onSave: onEdit,
+                  ),
+                ),
+              ).then((_) => Navigator.pop(context));
             },
           ),
           IconButton(
@@ -378,6 +395,146 @@ class IncomeDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class AddIncomeScreen extends StatefulWidget {
+  final Function(Income) onSave;
+  final Income? incomeToEdit;
+
+  const AddIncomeScreen({
+    super.key,
+    required this.onSave,
+    this.incomeToEdit,
+  });
+
+  @override
+  State<AddIncomeScreen> createState() => _AddIncomeScreenState();
+}
+
+class _AddIncomeScreenState extends State<AddIncomeScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late DateTime _selectedDate;
+  late IncomeSource _selectedSource;
+  late IncomeType _selectedType;
+  final TextEditingController _grossController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.incomeToEdit != null) {
+      _selectedDate = widget.incomeToEdit!.date;
+      _selectedSource = widget.incomeToEdit!.source;
+      _selectedType = widget.incomeToEdit!.type;
+      _grossController.text = widget.incomeToEdit!.gross;
+    } else {
+      _selectedDate = DateTime.now();
+      _selectedSource = IncomeSource.bolt;
+      _selectedType = IncomeType.basic;
+    }
+  }
+
+  void _presentDatePicker() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2010),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate != null) {
+      setState(() => _selectedDate = pickedDate);
+    }
+  }
+
+  void _submitData() {
+    if (!_formKey.currentState!.validate()) return;
+
+    final newIncome = Income(
+      id: widget.incomeToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      date: _selectedDate,
+      source: _selectedSource,
+      type: _selectedType,
+      gross: _grossController.text.replaceAll(',', '.'),
+    );
+
+    widget.onSave(newIncome);
+    Navigator.pop(context, newIncome);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.incomeToEdit == null ? 'Dodaj Przychód' : 'Edytuj Przychód'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  children: [
+                    DropdownButtonFormField<IncomeSource>(
+                      value: _selectedSource,
+                      decoration: const InputDecoration(labelText: 'Źródło'),
+                      items: IncomeSource.values.map((source) {
+                        return DropdownMenuItem(
+                          value: source,
+                          child: Text(source.name.toUpperCase()),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedSource = val!),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<IncomeType>(
+                      value: _selectedType,
+                      decoration: const InputDecoration(labelText: 'Typ przychodu'),
+                      items: IncomeType.values.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type == IncomeType.basic ? 'Podstawowy' : 'Bonus'),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _selectedType = val!),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _grossController,
+                      decoration: const InputDecoration(
+                        labelText: 'Kwota Brutto',
+                        suffixText: 'PLN',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
+                      ],
+                      validator: (val) => (val == null || val.isEmpty) ? 'Wpisz kwotę' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        "Data: ${DateFormat('dd.MM.yyyy').format(_selectedDate)}",
+                      ),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: _presentDatePicker,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _submitData,
+                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                child: Text(widget.incomeToEdit == null ? 'Zapisz fakturę' : 'Zapisz zmiany'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
