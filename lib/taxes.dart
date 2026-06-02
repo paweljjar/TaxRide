@@ -188,22 +188,77 @@ class _TaxesScreenState extends State<TaxesScreen> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => _HistoryBottomSheet(
-        onMonthSelected: (year, month) async {
-          final data = await _fetchDataForMonth(year, month);
-          setState(() {
-            _applyCalculations(data['incomes'], data['invoices']);
-          });
-          Navigator.pop(context);
-        },
+        onMonthSelected: (year, month) => _updateForMonth(year, month),
+        fetchDataForMonth: _fetchDataForMonth,
       ),
     );
   }
+
+  Future<void> _updateForMonth(int year, int month) async {
+    final data = await _fetchDataForMonth(year, month);
+    setState(() {
+      _applyCalculations(data['incomes'], data['invoices']);
+    });
+  }
 }
 
-class _HistoryBottomSheet extends StatelessWidget {
+class _HistoryBottomSheet extends StatefulWidget {
   final Function(int, int) onMonthSelected;
+  final Future<Map<String, dynamic>> Function(int, int) fetchDataForMonth;
 
-  const _HistoryBottomSheet({required this.onMonthSelected});
+  const _HistoryBottomSheet({required this.onMonthSelected, required this.fetchDataForMonth});
+
+  @override
+  State<_HistoryBottomSheet> createState() => _HistoryBottomSheetState();
+}
+
+class _HistoryBottomSheetState extends State<_HistoryBottomSheet> {
+  List<DateTime> _availableMonths = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableMonths();
+  }
+
+  Future<void> _loadAvailableMonths() async {
+    final directory = await getApplicationDocumentsDirectory();
+    Set<String> monthKeys = {};
+
+    // Skanowanie przychodów
+    final incomeFile = File('${directory.path}/incomesdata.json');
+    if (await incomeFile.exists()) {
+      final List<dynamic> jsonIn = json.decode(await incomeFile.readAsString());
+      for (var item in jsonIn) {
+        final date = DateTime.parse(item['date']);
+        monthKeys.add('${date.year}-${date.month}');
+      }
+    }
+
+    // Skanowanie faktur
+    final invoiceFile = File('${directory.path}/invoicesdata.json');
+    if (await invoiceFile.exists()) {
+      final List<dynamic> jsonInv = json.decode(await invoiceFile.readAsString());
+      for (var item in jsonInv) {
+        final date = DateTime.parse(item['date']);
+        monthKeys.add('${date.year}-${date.month}');
+      }
+    }
+
+    List<DateTime> sortedMonths = monthKeys.map((key) {
+      final parts = key.split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    }).toList();
+
+    // Sortowanie od najnowszego
+    sortedMonths.sort((a, b) => b.compareTo(a));
+
+    setState(() {
+      _availableMonths = sortedMonths;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,16 +270,24 @@ class _HistoryBottomSheet extends StatelessWidget {
           Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
           const SizedBox(height: 20),
           const Text('Wybierz miesiąc', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text('Z zarejestrowaną aktywnością', style: TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 20),
           Expanded(
-            child: ListView.builder(
-              itemCount: 12,
+            child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _availableMonths.isEmpty
+                ? const Center(child: Text('Brak danych w historii'))
+                : ListView.builder(
+              itemCount: _availableMonths.length,
               itemBuilder: (context, index) {
-                final date = DateTime(DateTime.now().year, DateTime.now().month - index);
+                final date = _availableMonths[index];
                 return ListTile(
                   leading: const Icon(Icons.calendar_month),
                   title: Text(DateFormat('MMMM yyyy', 'pl_PL').format(date)),
-                  onTap: () => onMonthSelected(date.year, date.month),
+                  onTap: () {
+                    widget.onMonthSelected(date.year, date.month);
+                    Navigator.pop(context);
+                  },
                 );
               },
             ),
