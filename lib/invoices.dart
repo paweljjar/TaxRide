@@ -55,7 +55,6 @@ class InvoicesScreen extends StatefulWidget {
 class _InvoicesScreenState extends State<InvoicesScreen> {
   List<Invoice> _invoices = [];
   bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
