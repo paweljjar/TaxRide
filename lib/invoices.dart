@@ -5,44 +5,69 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 
+class InvoiceItem {
+  final String name;
+  final double quantity;
+  final double netPrice;
+  final double vatRate;
+  InvoiceItem({
+    required this.name,
+    required this.quantity,
+    required this.netPrice,
+    required this.vatRate,
+  });
+
+  double get totalNet => netPrice * quantity;
+  double get vatAmount => totalNet * (vatRate / 100);
+  double get totalGross => totalNet + vatAmount;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'quantity': quantity,
+    'netPrice': netPrice,
+    'vatRate': vatRate,
+  };
+
+  factory InvoiceItem.fromJson(Map<String, dynamic> json) => InvoiceItem(
+    name: json['name'],
+    quantity: (json['quantity'] as num).toDouble(),
+    netPrice: (json['netPrice'] as num).toDouble(),
+    vatRate: (json['vatRate'] as num).toDouble(),
+  );
+}
+
 class Invoice {
   final String id;
   final DateTime date;
   final String title;
-  final String gross;
-  final double vat;
-  final String net;
+  final List<InvoiceItem> items;
 
   Invoice({
     required this.id,
     required this.date,
     required this.title,
-    required this.gross,
-    required this.vat,
-    required this.net,
+    required this.items,
   });
 
-  factory Invoice.fromJson(Map<String, dynamic> json) {
-    return Invoice(
-      id: json['id'] as String,
-      date: DateTime.parse(json['date'] as String),
-      title: json['title'] as String,
-      gross: json['gross'] as String,
-      vat: (json['vat'] as num).toDouble(),
-      net: json['net'] as String,
-    );
-  }
+  double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
+  double get totalVat => items.fold(0, (sum, item) => sum + item.vatAmount);
+  double get totalGross => items.fold(0, (sum, item) => sum + item.totalGross);
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'date': date.toIso8601String(),
-      'title': title,
-      'gross': gross,
-      'vat': vat,
-      'net': net,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'date': date.toIso8601String(),
+    'title': title,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
+
+  factory Invoice.fromJson(Map<String, dynamic> json) => Invoice(
+    id: json['id'],
+    date: DateTime.parse(json['date']),
+    title: json['title'],
+    items: (json['items'] as List)
+        .map((i) => InvoiceItem.fromJson(i as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class InvoicesScreen extends StatefulWidget {
@@ -55,6 +80,7 @@ class InvoicesScreen extends StatefulWidget {
 class _InvoicesScreenState extends State<InvoicesScreen> {
   List<Invoice> _invoices = [];
   bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -95,10 +121,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   Future<void> _saveInvoices(List<Invoice> newInvoices) async {
     try {
       final file = await _getLocalFile();
-
       final jsonData = newInvoices.map((i) => i.toJson()).toList();
       final String jsonString = json.encode(jsonData);
-
       await file.writeAsString(jsonString);
 
       setState(() {
@@ -120,6 +144,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   Future<void> _deleteInvoice(String id) async {
     final index = _invoices.indexWhere((inv) => inv.id == id);
+    if (index == -1) return;
+
     final deletedInvoice = _invoices[index];
     final updatedInvoices = _invoices.where((inv) => inv.id != id).toList();
     await _saveInvoices(updatedInvoices);
@@ -143,7 +169,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   Map<int, Map<int, List<Invoice>>> _getNestedGroupedInvoices() {
     final sortedInvoices = List<Invoice>.from(_invoices)
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort((a, b) => b.date.compareTo(a.date)); // Sortowanie od najnowszych
 
     final Map<int, Map<int, List<Invoice>>> groups = {};
 
@@ -170,7 +196,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   Widget build(BuildContext context) {
     final nestedGroups = _getNestedGroupedInvoices();
-    final years = nestedGroups.keys.toList()..sort((a, b) => a.compareTo(b));
+    final years = nestedGroups.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
       appBar: AppBar(
@@ -181,86 +207,91 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _invoices.isEmpty
-              ? const Center(child: Text('Brak faktur'))
-              : ListView.builder(
-                  itemCount: years.length,
-                  itemBuilder: (context, yearIndex) {
-                    final year = years[yearIndex];
-                    final monthsMap = nestedGroups[year]!;
-                    final months = monthsMap.keys.toList()..sort((a, b) => a.compareTo(b));
+          ? const Center(child: Text('Brak faktur'))
+          : ListView.builder(
+        itemCount: years.length,
+        itemBuilder: (context, yearIndex) {
+          final year = years[yearIndex];
+          final monthsMap = nestedGroups[year]!;
+          final months = monthsMap.keys.toList()..sort((a, b) => b.compareTo(a));
 
-                    return ExpansionTile(
-                      title: Text(
-                        '$year',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                      ),
-                      children: months.map((month) {
-                        final invoices = monthsMap[month]!;
-                        return ExpansionTile(
-                          title: Text(
-                            _getMonthName(month).toUpperCase(),
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w600,
+          return ExpansionTile(
+            initiallyExpanded: yearIndex == 0,
+            title: Text(
+              '$year',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            children: months.map((month) {
+              final invoices = monthsMap[month]!;
+              return ExpansionTile(
+                title: Text(
+                  _getMonthName(month).toUpperCase(),
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                children: invoices.map((invoice) {
+                  return Dismissible(
+                    key: Key(invoice.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (direction) => _deleteInvoice(invoice.id),
+                    child: ListTile(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => InvoiceDetailScreen(
+                              invoice: invoice,
+                              onDelete: () => _deleteInvoice(invoice.id),
+                              onEdit: (updated) => _editInvoice(invoice.id, updated),
                             ),
                           ),
-                          children: invoices.map((invoice) {
-                            return Dismissible(
-                              key: Key(invoice.id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                color: Colors.red,
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: const Icon(Icons.delete, color: Colors.white),
-                              ),
-                              onDismissed: (direction) => _deleteInvoice(invoice.id),
-                              child: ListTile(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => InvoiceDetailScreen(
-                                        invoice: invoice,
-                                        onDelete: () => _deleteInvoice(invoice.id),
-                                        onEdit: (updated) => _editInvoice(invoice.id, updated),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                leading: const Icon(Icons.description_outlined),
-                                title: Text(
-                                  invoice.title,
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                subtitle: Text(
-                                  'Data: ${DateFormat('dd.MM.yyyy').format(invoice.date)}',
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '${invoice.gross} zł',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    const Text('brutto', style: TextStyle(fontSize: 10)),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
                         );
-                      }).toList(),
-                    );
-                  },
-                ),
+                      },
+                      leading: const Icon(Icons.description_outlined),
+                      title: Text(
+                        invoice.title,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        'Data: ${DateFormat('dd.MM.yyyy').format(invoice.date)}',
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${invoice.totalGross.toStringAsFixed(2)} zł', // ZMIANA: używamy totalGross
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            '${invoice.items.length} poz.', // Opcjonalnie: liczba pozycji
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            }).toList(),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await Navigator.push(
+          // Tu nastąpi zmiana w następnym kroku - AddInvoiceScreen
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => AddInvoiceScreen(
@@ -272,11 +303,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               ),
             ),
           );
-          if (result == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Faktura została dodana')),
-            );
-          }
         },
         backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
@@ -299,10 +325,6 @@ class InvoiceDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double grossVal = double.tryParse(invoice.gross.replaceAll(',', '.')) ?? 0;
-    final double netVal = double.tryParse(invoice.net.replaceAll(',', '.')) ?? 0;
-    final String vatVal = (grossVal - netVal).toStringAsFixed(2);
-
     final String formattedDate = DateFormat('dd.MM.yyyy').format(invoice.date);
 
     return Scaffold(
@@ -375,12 +397,28 @@ class InvoiceDetailScreen extends StatelessWidget {
                     ),
                     const Divider(height: 32),
                     _buildDetailRow('Data wystawienia', formattedDate),
-                    _buildDetailRow('Kwota Brutto', '${invoice.gross} zł', isBold: true),
-                    _buildDetailRow('Kwota Netto', '${invoice.net} zł'),
-                    _buildDetailRow('Stawka VAT', '${invoice.vat.toInt()}%'),
+                    const SizedBox(height: 20),
+
+                    // SEKCJA POZYCJI
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Pozycje:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...invoice.items.map((item) => _buildItemRow(item)).toList(),
+
+                    const Divider(height: 32),
+
+                    // PODSUMOWANIE
+                    _buildDetailRow('Suma Netto', '${invoice.totalNet.toStringAsFixed(2)} zł'),
+                    _buildDetailRow('Suma VAT', '${invoice.totalVat.toStringAsFixed(2)} zł'),
                     _buildDetailRow(
-                      'Wartość VAT',
-                      '$vatVal zł',
+                        'RAZEM Brutto',
+                        '${invoice.totalGross.toStringAsFixed(2)} zł',
+                        isBold: true
                     ),
                   ],
                 ),
@@ -392,18 +430,46 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
+  // Pomocniczy widget dla pojedynczego produktu na liście
+  Widget _buildItemRow(InvoiceItem item) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(item.name, style: const TextStyle(fontSize: 14)),
+          ),
+          Expanded(
+            flex: 1,
+            child: Text('${item.quantity.toStringAsFixed(0)} szt.',
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text('${item.totalGross.toStringAsFixed(2)} zł',
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailRow(String label, String value, {bool isBold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 15)),
           Text(
             value,
             style: TextStyle(
               fontSize: 16,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              color: isBold ? Colors.blueAccent : Colors.black87,
             ),
           ),
         ],
@@ -429,23 +495,42 @@ class AddInvoiceScreen extends StatefulWidget {
 class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _grossController = TextEditingController();
-  final _vatAmountController = TextEditingController();
-  final _netController = TextEditingController();
-  double _selectedVat = 23.0;
+
+  // Lista pozycji na fakturze
+  List<InvoiceItem> _items = [];
   DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     if (widget.invoiceToEdit != null) {
-      final inv = widget.invoiceToEdit!;
-      _titleController.text = inv.title;
-      _grossController.text = inv.gross;
-      _selectedVat = inv.vat;
-      _selectedDate = inv.date;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateValues());
+      _titleController.text = widget.invoiceToEdit!.title;
+      _selectedDate = widget.invoiceToEdit!.date;
+      _items = List.from(widget.invoiceToEdit!.items); // Kopiujemy listę pozycji
     }
+  }
+
+  // Obliczanie sum na bieżąco dla podglądu w formularzu
+  double get _totalNet => _items.fold(0, (sum, item) => sum + item.totalNet);
+  double get _totalGross => _items.fold(0, (sum, item) => sum + item.totalGross);
+
+  void _addItem() {
+    showDialog(
+      context: context,
+      builder: (ctx) => _ItemDialog(
+        onAdd: (newItem) {
+          setState(() {
+            _items.add(newItem);
+          });
+        },
+      ),
+    );
+  }
+
+  void _removeItem(int index) {
+    setState(() {
+      _items.removeAt(index);
+    });
   }
 
   Future<void> _presentDatePicker() async {
@@ -460,31 +545,20 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     }
   }
 
-  void _calculateValues() {
-    final double gross = double.tryParse(_grossController.text.replaceAll(',', '.')) ?? 0;
-
-    final double net = gross / (1 + (_selectedVat / 100));
-    final double vatAmount = gross - net;
-
-    setState(() {
-      _netController.text = net.toStringAsFixed(2);
-      _vatAmountController.text = vatAmount.toStringAsFixed(2);
-    });
-  }
-
   void _submitData() {
-    if (_grossController.text.isNotEmpty) {
-      _calculateValues();
-    }
-
     if (_formKey.currentState!.validate()) {
+      if (_items.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dodaj przynajmniej jeden produkt!')),
+        );
+        return;
+      }
+
       final newInvoice = Invoice(
         id: widget.invoiceToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         date: _selectedDate,
         title: _titleController.text,
-        gross: _grossController.text,
-        vat: _selectedVat,
-        net: _netController.text,
+        items: _items,
       );
 
       widget.onSave(newInvoice);
@@ -496,81 +570,183 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.invoiceToEdit == null ? 'Dodaj Fakturę' : 'Edytuj Fakturę'),
+        title: Text(widget.invoiceToEdit == null ? 'Nowa Faktura' : 'Edytuj Fakturę'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Tytuł/Nr faktury'),
-                validator: (value) => value!.isEmpty ? 'Wpisz tytuł' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _grossController,
-                decoration: const InputDecoration(labelText: 'Kwota Brutto'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}')),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
+                children: [
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Kontrahent / Numer faktury',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) => value!.isEmpty ? 'Wpisz nazwę' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  ListTile(
+                    tileColor: Colors.grey[100],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    title: Text("Data: ${DateFormat('dd.MM.yyyy').format(_selectedDate)}"),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: _presentDatePicker,
+                  ),
+                  const Divider(height: 30),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Pozycje na fakturze",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      TextButton.icon(
+                        onPressed: _addItem,
+                        icon: const Icon(Icons.add),
+                        label: const Text("Dodaj produkt"),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // LISTA PRODUKTÓW
+                  if (_items.isEmpty)
+                    const Center(child: Text("Brak produktów na liście"))
+                  else
+                    ..._items.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      InvoiceItem item = entry.value;
+                      return Card(
+                        child: ListTile(
+                          title: Text(item.name),
+                          subtitle: Text(
+                            "${item.quantity.toStringAsFixed(0)} szt. x ${item.netPrice.toStringAsFixed(2)} zł (VAT ${item.vatRate.toInt()}%)",
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text("${item.totalGross.toStringAsFixed(2)} zł",
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                onPressed: () => _removeItem(idx),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                 ],
-                validator: (value) => value!.isEmpty ? 'Wpisz kwotę' : null,
-                onChanged: (value) => _calculateValues(),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<double>(
-                value: _selectedVat,
-                decoration: const InputDecoration(labelText: 'Stawka VAT (%)'),
-                items: [0.0, 5.0, 8.0, 23.0].map((double value) {
-                  return DropdownMenuItem<double>(
-                    value: value,
-                    child: Text('${value.toInt()}%'),
-                  );
-                }).toList(),
-                onChanged: (double? newValue) {
-                  setState(() {
-                    _selectedVat = newValue!;
-                    _calculateValues();
-                  });
-                },
+            ),
+
+            // PODSUMOWANIE NA DOLE
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text("Data wystawienia: ${_selectedDate.toString().substring(0, 10)}"),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _presentDatePicker,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Suma Brutto:", style: TextStyle(fontSize: 16)),
+                      Text("${_totalGross.toStringAsFixed(2)} zł",
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _submitData,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(widget.invoiceToEdit == null ? 'ZAPISZ FAKTURĘ' : 'ZAPISZ ZMIANY'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _vatAmountController,
-                decoration: const InputDecoration(
-                  labelText: 'Wyliczony VAT',
-                  filled: true,
-                ),
-                readOnly: true,
-              ),
-              TextFormField(
-                controller: _netController,
-                decoration: const InputDecoration(
-                  labelText: 'Kwota Netto (wyliczona)',
-                  filled: true,
-                ),
-                readOnly: true,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitData,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                child: Text(widget.invoiceToEdit == null ? 'Zapisz fakturę' : 'Zapisz zmiany'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _ItemDialog extends StatefulWidget {
+  final Function(InvoiceItem) onAdd;
+  const _ItemDialog({required this.onAdd});
+
+  @override
+  State<_ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<_ItemDialog> {
+  final _nameController = TextEditingController();
+  final _netPriceController = TextEditingController();
+  final _quantityController = TextEditingController(text: "1");
+  double _selectedVat = 23.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Dodaj produkt/usługę"),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: "Nazwa produktu"),
+            ),
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: "Ilość"),
+            ),
+            TextField(
+              controller: _netPriceController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}'))],
+              decoration: const InputDecoration(labelText: "Cena netto (jednostkowa)"),
+            ),
+            DropdownButtonFormField<double>(
+              value: _selectedVat,
+              decoration: const InputDecoration(labelText: "VAT %"),
+              items: [23.0, 8.0, 5.0, 0.0].map((v) =>
+                  DropdownMenuItem(value: v, child: Text("${v.toInt()}%"))
+              ).toList(),
+              onChanged: (val) => setState(() => _selectedVat = val!),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("ANULUJ")),
+        ElevatedButton(
+          onPressed: () {
+            if (_nameController.text.isNotEmpty && _netPriceController.text.isNotEmpty) {
+              final item = InvoiceItem(
+                name: _nameController.text,
+                quantity: double.tryParse(_quantityController.text.replaceAll(',', '.')) ?? 1,
+                netPrice: double.tryParse(_netPriceController.text.replaceAll(',', '.')) ?? 0,
+                vatRate: _selectedVat,
+              );
+              widget.onAdd(item);
+              Navigator.pop(context);
+            }
+          },
+          child: const Text("DODAJ"),
+        ),
+      ],
     );
   }
 }

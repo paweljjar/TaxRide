@@ -53,7 +53,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
     }
 
     for (var inv in invoices) {
-      h += double.tryParse(inv.gross.replaceAll(',', '.')) ?? 0.0;
+      h += inv.totalGross;
     }
 
     _baseValue = 0.92 * b - 0.15 * c + 0.92 * d - 0.15 * e + 0.92 * f - 0.15 * g - 0.75 * h - 184.92;
