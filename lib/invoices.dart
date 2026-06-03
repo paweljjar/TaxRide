@@ -169,7 +169,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   Map<int, Map<int, List<Invoice>>> _getNestedGroupedInvoices() {
     final sortedInvoices = List<Invoice>.from(_invoices)
-      ..sort((a, b) => b.date.compareTo(a.date)); // Sortowanie od najnowszych
+      ..sort((a, b) => b.date.compareTo(a.date));
 
     final Map<int, Map<int, List<Invoice>>> groups = {};
 
@@ -268,14 +268,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${invoice.totalGross.toStringAsFixed(2)} zł', // ZMIANA: używamy totalGross
+                            '${invoice.totalGross.toStringAsFixed(2)} zł',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                           Text(
-                            '${invoice.items.length} poz.', // Opcjonalnie: liczba pozycji
+                            '${invoice.items.length} poz.',
                             style: const TextStyle(fontSize: 10),
                           ),
                         ],
@@ -290,7 +290,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Tu nastąpi zmiana w następnym kroku - AddInvoiceScreen
           await Navigator.push(
             context,
             MaterialPageRoute(
@@ -399,7 +398,6 @@ class InvoiceDetailScreen extends StatelessWidget {
                     _buildDetailRow('Data wystawienia', formattedDate),
                     const SizedBox(height: 20),
 
-                    // SEKCJA POZYCJI
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -412,7 +410,6 @@ class InvoiceDetailScreen extends StatelessWidget {
 
                     const Divider(height: 32),
 
-                    // PODSUMOWANIE
                     _buildDetailRow('Suma Netto', '${invoice.totalNet.toStringAsFixed(2)} zł'),
                     _buildDetailRow('Suma VAT', '${invoice.totalVat.toStringAsFixed(2)} zł'),
                     _buildDetailRow(
@@ -430,7 +427,6 @@ class InvoiceDetailScreen extends StatelessWidget {
     );
   }
 
-  // Pomocniczy widget dla pojedynczego produktu na liście
   Widget _buildItemRow(InvoiceItem item) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -496,7 +492,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
 
-  // Lista pozycji na fakturze
   List<InvoiceItem> _items = [];
   DateTime _selectedDate = DateTime.now();
 
@@ -506,12 +501,10 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     if (widget.invoiceToEdit != null) {
       _titleController.text = widget.invoiceToEdit!.title;
       _selectedDate = widget.invoiceToEdit!.date;
-      _items = List.from(widget.invoiceToEdit!.items); // Kopiujemy listę pozycji
+      _items = List.from(widget.invoiceToEdit!.items);
     }
   }
 
-  // Obliczanie sum na bieżąco dla podglądu w formularzu
-  double get _totalNet => _items.fold(0, (sum, item) => sum + item.totalNet);
   double get _totalGross => _items.fold(0, (sum, item) => sum + item.totalGross);
 
   void _addItem() {
@@ -527,10 +520,26 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
     );
   }
 
-  void _removeItem(int index) {
+  void _removeItem(int index, BuildContext context) {
+    final removedItem = _items[index];
     setState(() {
       _items.removeAt(index);
     });
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Usunięto: ${removedItem.name}'),
+        action: SnackBarAction(
+          label: 'COFNIJ',
+          onPressed: () {
+            setState(() {
+              _items.insert(index, removedItem);
+            });
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _presentDatePicker() async {
@@ -583,7 +592,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(
-                      labelText: 'Kontrahent / Numer faktury',
+                      labelText: 'Nazwa faktury',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value!.isEmpty ? 'Wpisz nazwę' : null,
@@ -613,7 +622,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // LISTA PRODUKTÓW
                   if (_items.isEmpty)
                     const Center(child: Text("Brak produktów na liście"))
                   else
@@ -633,7 +641,7 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                onPressed: () => _removeItem(idx),
+                                onPressed: () => _removeItem(idx, context),
                               ),
                             ],
                           ),
@@ -644,7 +652,6 @@ class _AddInvoiceScreenState extends State<AddInvoiceScreen> {
               ),
             ),
 
-            // PODSUMOWANIE NA DOLE
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -691,7 +698,7 @@ class _ItemDialog extends StatefulWidget {
 
 class _ItemDialogState extends State<_ItemDialog> {
   final _nameController = TextEditingController();
-  final _netPriceController = TextEditingController();
+  final _grossPriceController = TextEditingController();
   final _quantityController = TextEditingController(text: "1");
   double _selectedVat = 23.0;
 
@@ -713,10 +720,10 @@ class _ItemDialogState extends State<_ItemDialog> {
               decoration: const InputDecoration(labelText: "Ilość"),
             ),
             TextField(
-              controller: _netPriceController,
+              controller: _grossPriceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d{0,2}'))],
-              decoration: const InputDecoration(labelText: "Cena netto (jednostkowa)"),
+              decoration: const InputDecoration(labelText: "Cena brutto (jednostkowa)"),
             ),
             DropdownButtonFormField<double>(
               value: _selectedVat,
@@ -733,11 +740,14 @@ class _ItemDialogState extends State<_ItemDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("ANULUJ")),
         ElevatedButton(
           onPressed: () {
-            if (_nameController.text.isNotEmpty && _netPriceController.text.isNotEmpty) {
+            if (_nameController.text.isNotEmpty && _grossPriceController.text.isNotEmpty) {
+              final grossPrice = double.tryParse(_grossPriceController.text.replaceAll(',', '.')) ?? 0;
+              final netPrice = grossPrice / (1 + (_selectedVat / 100));
+
               final item = InvoiceItem(
                 name: _nameController.text,
                 quantity: double.tryParse(_quantityController.text.replaceAll(',', '.')) ?? 1,
-                netPrice: double.tryParse(_netPriceController.text.replaceAll(',', '.')) ?? 0,
+                netPrice: netPrice,
                 vatRate: _selectedVat,
               );
               widget.onAdd(item);
