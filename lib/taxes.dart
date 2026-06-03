@@ -226,7 +226,6 @@ class _HistoryBottomSheetState extends State<_HistoryBottomSheet> {
     final directory = await getApplicationDocumentsDirectory();
     Set<String> monthKeys = {};
 
-    // Skanowanie przychodów
     final incomeFile = File('${directory.path}/incomesdata.json');
     if (await incomeFile.exists()) {
       final List<dynamic> jsonIn = json.decode(await incomeFile.readAsString());
@@ -236,7 +235,7 @@ class _HistoryBottomSheetState extends State<_HistoryBottomSheet> {
       }
     }
 
-    // Skanowanie faktur
+
     final invoiceFile = File('${directory.path}/invoicesdata.json');
     if (await invoiceFile.exists()) {
       final List<dynamic> jsonInv = json.decode(await invoiceFile.readAsString());
@@ -251,7 +250,6 @@ class _HistoryBottomSheetState extends State<_HistoryBottomSheet> {
       return DateTime(int.parse(parts[0]), int.parse(parts[1]));
     }).toList();
 
-    // Sortowanie od najnowszego
     sortedMonths.sort((a, b) => b.compareTo(a));
 
     setState(() {
@@ -270,7 +268,6 @@ class _HistoryBottomSheetState extends State<_HistoryBottomSheet> {
           Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
           const SizedBox(height: 20),
           const Text('Wybierz miesiąc', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const Text('Z zarejestrowaną aktywnością', style: TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 20),
           Expanded(
             child: _loading
